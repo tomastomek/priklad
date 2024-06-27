@@ -1,0 +1,157 @@
+﻿@page "/"
+@using Syncfusion.Blazor.Inputs
+@using Zufanci.Shared
+@using Zufanci.Client.Repository.IRepository
+@inject IProductRepository productRepository
+@inject IProductPriceRepository priceRepository
+@inject NavigationManager navigationManager
+@rendermode InteractiveAuto
+
+<style>
+    .search-box {
+        position: relative;
+        margin: 0 auto;
+        width: 500px;
+        height: 40px;
+        border-radius: 20px;
+        background-color: #f2f2f2;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    .e-input {
+        position: absolute !important;
+        left: 50px !important;
+        height: 100% !important;
+        padding: 10px 20px !important;
+    }
+
+    .e-input-group {
+        all: unset !important;
+    }
+
+    .search-icon {
+        position: absolute;
+        top: 50%;
+        left: 20px;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 20px;
+        background-repeat: no-repeat;
+        background-size: cover;
+    }
+
+        .search-icon svg {
+            vertical-align: initial;
+        }
+
+    @@media screen and (max-width: 768px) {
+        .search-box {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .e-input {
+            left: 30px !important;
+            padding: 10px 15px !important;
+        }
+    }
+
+    @@media screen and (max-width: 576px) {
+        .search-box {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .e-input {
+            left: 20px !important;
+            padding: 10px !important;
+        }
+
+        .search-icon {
+            left: 10px;
+            width: 16px;
+            height: 16px;
+        }
+</style>
+
+@if (isLoading)
+{
+    <SfSpinner Visible="@isLoading" Label="Připravuji podklady pro hledání" />
+}
+else
+{
+    <div class="search-box">
+        <span class="search-icon">
+            <svg viewBox="0 0 24 24">
+                <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path>
+            </svg>
+        </span>
+        <SfTextBox Placeholder="Co chceš vyhledat?" Input="OnInput" CssClass="Search"></SfTextBox>
+    </div>
+
+    <div style="display: @(isHidden ? "none" : ""); padding-top: 30px">
+        <SfGrid @ref="ProductGrid" DataSource="@products" AllowPaging="true" AllowSorting="true" AllowTextWrap="true">
+            <GridTextWrapSettings WrapMode="WrapMode.Both" />
+            <GridPageSettings PageSize="15"></GridPageSettings>
+            <GridEvents CommandClicked="OnCommandClicked" TValue="Product"/>
+            <GridColumns>
+                <GridColumn Field="@nameof(Product.Name)" HeaderText="Produkt" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+                <GridColumn Field="@nameof(Product.LowestPrice)" HeaderText="Nejnižší cena" Format="C2" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+                <GridColumn Field="@nameof(Product.HighestPrice)" HeaderText="Nejvyšší cena" Format="C2" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+                <GridColumn Field="@nameof(Product.AveragePrice)" HeaderText="Průměrná cena" Format="C2" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+                <GridColumn HeaderText="Ceny" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                    <GridCommandColumns>
+                        <GridCommandColumn ButtonOption="@(new CommandButtonOptions() { CssClass="e-icons e-primary e-view-details"})" Title="Detaily"></GridCommandColumn>
+                    </GridCommandColumns>
+                </GridColumn>
+            </GridColumns>
+        </SfGrid>
+    </div>
+}
+
+@code {
+    private SfGrid<Product> ProductGrid;
+    private List<ProductPrice> Prices { get; set; } = new List<ProductPrice>();
+    private List<Product> products;
+    private bool isLoading;
+    private string searchValue = "";
+    private bool isHidden = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) { return; }
+        isLoading = true;
+        products = await productRepository.GetProductsAsync();
+        isLoading = false;
+        StateHasChanged();
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private async Task OnInput(InputEventArgs searchText)
+    {
+        searchValue = searchText.Value?.ToString();
+        if (searchValue == "")
+        {
+            await ProductGrid.SearchAsync(null);
+            isHidden = true;
+        }
+        else
+        {
+            if (searchValue.Length > 2)
+            {
+                await ProductGrid.SearchAsync(searchValue);
+                isHidden = false;
+            }
+            else
+                isHidden = true;
+        }
+    }
+
+    public void OnCommandClicked(CommandClickEventArgs<Product> args)
+    {
+        if (args.CommandColumn.Type == CommandButtonType.None)
+        {
+            navigationManager.NavigateTo($"product/price/{args.RowData.Id}");
+        }
+    }
+}

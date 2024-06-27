@@ -1,0 +1,95 @@
+﻿@page "/graphs"
+@using Syncfusion.Blazor.Charts
+@using Zufanci.Shared
+@inject IProductPriceRepository priceRepository
+@inject IProductRepository productRepository
+@rendermode InteractiveAuto
+
+
+@if (isLoading)
+{
+    <SfSpinner Visible="@isLoading" Label="Načítám grafy" />
+}
+else
+{
+    <SfAccumulationChart EnableSmartLabels="true">
+        <AccumulationChartTitleStyle>
+            <p style="text-align: center; font-size: 28px; font-weight: 600;">Graf zobrazující útratu podle obchodu</p>
+        </AccumulationChartTitleStyle>
+        <AccumulationChartTooltipSettings Header="" Format="<b>${point.x}</b><br>útrata: <b>${point.y} Kč</b>" Enable="true"></AccumulationChartTooltipSettings>
+        <AccumulationChartSeriesCollection>
+            <AccumulationChartSeries DataSource="@ShopTotals" XName="Shop" YName="Expenditure"
+                                     Name="Obchod" InnerRadius="40%" Explode="true">
+                <AccumulationDataLabelSettings Visible="true" Name="Shop" Position="AccumulationLabelPosition.Outside">
+                    <AccumulationChartConnector Length="20px" Type="ConnectorType.Curve"></AccumulationChartConnector>
+                    <AccumulationChartDataLabelFont FontWeight="600"></AccumulationChartDataLabelFont>
+                </AccumulationDataLabelSettings>
+            </AccumulationChartSeries>
+        </AccumulationChartSeriesCollection>
+    </SfAccumulationChart>
+
+    <SfAccumulationChart>
+        <AccumulationChartTitleStyle>
+            <p style="text-align: center; font-size: 28px; font-weight: 600;">Graf zobrazující útratu podle kategorie</p>
+        </AccumulationChartTitleStyle>
+        <AccumulationChartTooltipSettings Header="" Format="<b>${point.x}</b><br>útrata: <b>${point.y} Kč</b>" Enable="true"></AccumulationChartTooltipSettings>
+        <AccumulationChartSeriesCollection>
+            <AccumulationChartSeries DataSource="@CategoryTotals" XName="Category" YName="Expenditure" Explode="true"
+                                     Name="Kategorie" Type="AccumulationType.Pyramid" PyramidMode="PyramidMode.Linear" Width="60%" Height="100%" LegendShape="LegendShape.SeriesType">
+                <AccumulationDataLabelSettings Visible="true" Name="Category">
+                    <AccumulationChartDataLabelFont FontWeight="600"></AccumulationChartDataLabelFont>
+                </AccumulationDataLabelSettings>
+            </AccumulationChartSeries>
+        </AccumulationChartSeriesCollection>
+        <AccumulationChartLegendSettings Visible="true" Position="LegendPosition.Right" Width=""></AccumulationChartLegendSettings>
+    </SfAccumulationChart>
+}
+
+@code {
+    private IEnumerable<ShopTotal> ShopTotals = new List<ShopTotal>();
+    private IEnumerable<CategoryTotal> CategoryTotals = new List<CategoryTotal>();
+    private bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        var Prices = await priceRepository.GetAllPricesAsync();
+        var Products = await productRepository.GetProductsAsync();
+        //var total2 = Prices.GroupBy(p => p.Shop.Name)
+        //                   .Select(item => new Total { Shop = item.Key, Expenditure = item.Sum(p => p.Price), DataLabelMappingName = $"{item.Sum(p => p.Price)} Kč")
+        //                   .ToList();
+        if (Prices.Count == 0 || Products.Count == 0) 
+        { isLoading = false; return; }
+        ShopTotals = from p in Prices
+                     group p by p.Shop.Name into g
+                     orderby g.Key
+                     select new ShopTotal { Shop = g.Key, Expenditure = g.Sum(p => p.Price), DataLabelMappingName = $"{g.Sum(p => p.Price)} Kč" };
+
+        CategoryTotals = from price in Prices
+                         join product in Products on price.ProductId equals product.Id
+                         group new { product.Category.Name, price.Price } by product.Category.Name into categoryPriceGroup
+                         orderby categoryPriceGroup.Key
+                         select new CategoryTotal
+                             {
+                                 Category = categoryPriceGroup.Key,
+                                 Expenditure = categoryPriceGroup.Sum(x => x.Price),
+                                 DataLabelMappingName = $"{categoryPriceGroup.Sum(p => p.Price)} Kč"
+                             };
+
+        isLoading = false;
+    }
+
+    private class ShopTotal
+    {
+        public string Shop { get; set; }
+        public decimal Expenditure { get; set; }
+        public string DataLabelMappingName { get; set; }
+    }
+
+    private class CategoryTotal
+    {
+        public string Category { get; set; }
+        public decimal Expenditure { get; set; }
+        public string DataLabelMappingName { get; set; }
+    }
+}

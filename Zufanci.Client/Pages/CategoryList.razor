@@ -1,0 +1,139 @@
+﻿@page "/category"
+@using Zufanci.Shared
+@using Zufanci.Client.Repository.IRepository
+@inject ICategoryRepository categoryRespository
+@inject IImageRepository imageRepository
+@inject IJSRuntime jsRuntime
+@rendermode InteractiveAuto
+
+@if (isLoading)
+{
+    <SfSpinner Visible="@isLoading" Label="Načítám kategorie" />
+}
+else
+{
+    <h3 style="text-align:center;">Kategorie</h3>
+    <SfGrid @ref="CategoryGrid" DataSource="@categories" AllowPaging="true" AllowSorting="true" AllowFiltering="true" AdaptiveUIMode="AdaptiveMode.Both"
+            Toolbar="@(new List<string>() {"Add", "Edit"})">
+        <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel" />
+        <GridPageSettings PageSize="15"></GridPageSettings>
+        <GridEditSettings AllowEditing="true" AllowAdding="true" AllowDeleting="true"></GridEditSettings>
+        <GridEvents OnActionBegin="ActionBegin" CommandClicked="OnCommandClicked" TValue="Category" />
+        <GridColumns>
+            <GridColumn Field="@nameof(Category.Id)" HeaderText="Category Id" AllowAdding="false" AllowEditing="false" Visible="false" IsPrimaryKey="true" />
+            <GridColumn HeaderText="Logo kategorie" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                <Template>
+                    @if ((context as Category).CategoryImage != null)
+                    {
+                        <img style="height: 30px; width: 30px;" src="@((context as Category).CategoryImage)" />
+                    }
+                </Template>
+                <EditTemplate>
+                    @if (imageBase64 == null && (context as Category).CategoryImage == null)
+                    {
+                        <InputFile accept=".jpg, .jpeg, .png" OnChange="HandleImageUpload" />
+                    }
+                    @if (imageBase64 != null)
+                    {
+                        <img src="data:image/jpeg;base64, @imageBase64" style="width: 30px" />
+                    }
+                    @if ((context as Category).CategoryImage != null && imageBase64 == null)
+                    {
+                        <img src="@((context as Category).CategoryImage)" style="width: 30px" />
+                        <InputFile accept=".jpg, .jpeg, .png" OnChange="HandleImageUpload" />
+                    }
+                </EditTemplate>
+            </GridColumn>
+            <GridColumn Field="@nameof(Category.Name)" HeaderText="Název" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+            <GridColumn HeaderText="Spravovat záznamy" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                <GridCommandColumns>
+                    <GridCommandColumn Type="CommandButtonType.Edit" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-edit", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Delete" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-delete", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Save" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-update", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Cancel" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-cancel-icon", CssClass = "e-flat" })"></GridCommandColumn>
+                </GridCommandColumns>
+            </GridColumn>
+        </GridColumns>
+    </SfGrid>
+}
+
+@code {
+    private SfGrid<Category> CategoryGrid = default!;
+    private bool isLoading;
+    private bool hasChanged;
+    private string imageBase64 = default!;
+    List<Category> categories = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        categories = await categoryRespository.GetCategoriesAsync();
+        isLoading = false;
+    }
+
+    public async void ActionBegin(ActionEventArgs<Category> args)
+    {
+        if (args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            if (imageBase64 != null)
+            {
+                args.Data.CategoryImage = await imageRepository.CreateImageAsync(imageBase64, "category");
+            }
+
+            if (args.Action == "Add")
+            {
+                await categoryRespository.CreateCategoryAsync(args.Data);
+                categories = await categoryRespository.GetCategoriesAsync();
+                hasChanged = true;
+
+            }
+            if (args.Action == "Edit")
+            {
+                await categoryRespository.UpdateCategoryAsync(args.Data);
+                hasChanged = true;
+            }
+
+            if (hasChanged)
+            {
+                categories = await categoryRespository.GetCategoriesAsync();
+                await CategoryGrid.Refresh();
+            }
+        }
+        imageBase64 = null;
+    }
+
+    public async Task OnCommandClicked(CommandClickEventArgs<Category> args)
+    {
+        if (args.CommandColumn.Type == CommandButtonType.Delete)
+        {
+            bool deleted = await categoryRespository.DeleteCategoryAsync(args.RowData.Id);
+            if (deleted)
+            {
+                await jsRuntime.ToastrSuccess("Úspěch", "Kategorie byla smazána.");
+            }
+            else
+            {
+                args.Cancel = true;
+                await jsRuntime.ToastrError("Chyba", "Kategorii není možné smazat, protože se používá!");
+            }
+        }
+    }
+
+    public async Task HandleImageUpload(InputFileChangeEventArgs args)
+    {
+        var imageFiles = args.GetMultipleFiles();
+
+        foreach (var image in imageFiles)
+        {
+            byte[] buffer = new byte[image.Size];
+            using (MemoryStream ms = new MemoryStream())
+            {
+                await image.OpenReadStream().CopyToAsync(ms);
+                buffer = ms.ToArray();
+            }
+            imageBase64 = Convert.ToBase64String(buffer);
+        }
+        CategoryGrid.PreventRender(false);
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,373 @@
+﻿@page "/monitoring"
+
+@using Microsoft.AspNetCore.SignalR.Client
+
+@using Zufanci.Shared
+@using Zufanci.Server.Service
+@inject NavigationManager navigationManager
+@inject IJSRuntime jsRuntime
+@inject IStringParserService parser
+@inject IMonitoringService monitoringService
+@rendermode InteractiveServer
+
+<PageTitle>Monitoring</PageTitle>
+
+@if (isLoading)
+{
+    <SfSpinner Visible="@isLoading" Label="Načítám detaily" />
+}
+else
+{
+    <h3 style="text-align:center;">Přehled prvků ke sledování</h3>
+    <SfDialog @ref="Dialog" Width="250px" Visible="false" ShowCloseIcon="true" IsModal="true">
+        <DialogEvents Closed="Closed"></DialogEvents>
+        <DialogTemplates>
+            <Header>Smazat záznam</Header>
+            <Content> Chcete smazat záznam @SelectedData ?</Content>
+        </DialogTemplates>
+        <DialogButtons>
+            <DialogButton OnClick="@OkClick" Content="ANO" IsPrimary="true"></DialogButton>
+            <DialogButton OnClick="@CancelClick" Content="NE"></DialogButton>
+        </DialogButtons>
+    </SfDialog>
+
+    <SfGrid @ref="MonitoringGrid" DataSource="@monitoringItems" AllowPaging="true" AllowSorting="true" AllowFiltering="true" AdaptiveUIMode="AdaptiveMode.Both"
+            Toolbar="@(new List<string>() {"Add", "Delete"})" AllowTextWrap="true" Que>
+        <GridPageSettings PageSizes="@(new string[] { "5", "10", "15", "20", "50", "All" })" PageSize="15"></GridPageSettings>
+        <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel" />
+        <GridEvents OnActionComplete="OnActionComplete" OnActionBegin="ActionBegin" RowSelected="RowSelectHandler" CommandClicked="OnCommandClicked" TValue="MonitoringItem" />
+        <GridEditSettings AllowEditing="true" AllowAdding="true" AllowDeleting="true" Mode="EditMode.Dialog" AllowEditOnDblClick="false">
+            <Validator>
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+            </Validator>
+            <Template>
+                @{
+                    var item = context as MonitoringItem;
+                }
+                <div style="width: 400px;">
+                    <div>
+                        <div style="margin-bottom: 10px;">
+                            <label for="description" class="form-label">Popis:</label>
+                            <input id="description" type="text" @bind="@item.Description" class="form-control e-input" />
+                            <ValidationMessage For="() => item.Description" />
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label for="websiteUrl" class="form-label">Adresa:</label>
+                            <input id="websiteUrl" type="text" @bind="@item.WebsiteUrl" class="form-control e-input" />
+                            <ValidationMessage For="() => item.WebsiteUrl" />
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label for="emailAddress" class="form-label">Email:</label>
+                            <input id="emailAddress" type="text" @bind="@item.EmailAddress" class="form-control e-input" />
+                            <ValidationMessage For="() => item.EmailAddress" />
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label for="xpathToElement" class="form-label">Prvek:</label>
+                            <input id="xpathToElement" type="text" @bind="@item.XPathToElement" class="form-control e-input" />
+                            <ValidationMessage For="() => item.XPathToElement" />
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label for="template" class="form-label">Šablona:</label>
+                            <input id="template" type="text" @bind="@item.Template" class="form-control e-input" />
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label for="password" class="form-label">Heslo:</label>
+                            <input id="password" type="text" @bind="@item.Password" class="form-control e-input" />
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <div style="margin-right: 10px;">
+                                <label for="outerHtml">Podrobnější hledání: </label>
+                                <input type="checkbox" id="outerHtml" @bind="item.OuterHtml" />
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 10px;">
+                            <button class="btn btn-primary" @onclick="() => Verify(item?.WebsiteUrl, item?.XPathToElement, item?.OuterHtml, item?.Template)">Ověření</button>
+                        </div>
+                    </div>
+                </div>
+            </Template>
+        </GridEditSettings>
+        <GridColumns>
+            <GridColumn HeaderText="Zámek" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" Visible="true">
+                <Template Context="context">
+                    @{
+                        var item = context as MonitoringItem;
+                        if (!string.IsNullOrEmpty(item.Password))
+                        {
+                            <button class="btn btn-primary" @onclick="() => VerifyPassword(item.Id)">
+                                <i class="fa fa-lock"></i> Odemknout
+                            </button>
+                        }
+                    }
+                </Template>
+            </GridColumn>
+            <GridColumn Field="@nameof(MonitoringItem.Description)" HeaderText="Popis" AllowAdding="true" AllowEditing="false" Visible="true">
+                <Template Context="context">
+                    @{
+                        var item = context as MonitoringItem;
+                        if (string.IsNullOrEmpty(item.Password) || unlockedItems.ContainsKey(item.Id))
+                        {
+                            <span>@item.Description</span>
+                        }
+                        else if (!unlockedItems.ContainsKey(item.Id))
+                        {
+                            <span>********</span>
+                        }
+                    }
+                </Template>
+                </GridColumn>
+            <GridColumn Field="@nameof(MonitoringItem.WebsiteUrl)" HeaderText="Adresa" AllowAdding="true" AllowEditing="false" Visible="true">
+                <Template Context="context">
+                    @{
+                        var item = context as MonitoringItem;
+                        if (string.IsNullOrEmpty(item.Password) || unlockedItems.ContainsKey(item.Id))
+                        {
+                            <span>@item.WebsiteUrl</span>
+                        }
+                        else if (!unlockedItems.ContainsKey(item.Id))
+                        {
+                            <span>********</span>
+                        }
+                    }
+                </Template>                
+                </GridColumn>
+            <GridColumn Field="@nameof(MonitoringItem.XPathToElement)" HeaderText="Prvek" AllowAdding="true" AllowEditing="true" Visible="false" />
+            <GridColumn Field="@nameof(MonitoringItem.EmailAddress)" HeaderText="Email" AllowAdding="true" AllowEditing="true" Visible="true" />
+            <GridColumn Field="@nameof(MonitoringItem.Template)" HeaderText="Šablona" AllowAdding="true" AllowEditing="true" Visible="false" />
+            <GridColumn Field="@nameof(MonitoringItem.Password)" HeaderText="Heslo" AllowAdding="true" AllowEditing="true" Visible="false">
+                <Template></Template>
+                </GridColumn>
+            <GridColumn Field="@nameof(MonitoringItem.Change)" HeaderText="Změny" AllowAdding="false" AllowEditing="false" Visible="true" AllowFiltering="false">
+                <Template Context=context>
+                    @{
+                        var item = context as MonitoringItem;
+                        <div class="indicator @(item.Change == MonitoringItem.MonitoringChange.NOCHANGE ? "grey" : "green")" data-number="@item.NumChanges"></div>
+                    }
+                </Template>
+            </GridColumn>
+            <GridColumn HeaderText="Detaily" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                <GridCommandColumns>
+                    <GridCommandColumn ButtonOption="@(new CommandButtonOptions() { CssClass="e-icons e-primary e-view-details"})" Title="Detaily"></GridCommandColumn>
+                </GridCommandColumns>
+            </GridColumn>
+        </GridColumns>
+    </SfGrid>
+}
+
+
+@code {
+    private SfGrid<MonitoringItem> MonitoringGrid = default!;
+    private List<MonitoringItem> monitoringItems = default!;
+    private Dictionary<int, bool> unlockedItems = new Dictionary<int, bool>();
+    private SfDialog Dialog;
+
+    private HubConnection? hubConnection;
+
+    private bool isLoading;
+    public int SelectedData;
+    public bool isDialogOpen = true;
+
+    public void OnActionComplete(ActionEventArgs<MonitoringItem> args)
+    {
+        if (args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Add) || args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.BeginEdit))
+        {
+            // Based on Add or Edit action disable the PreventRender.
+            args.PreventRender = false;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+        .WithUrl("http://localhost:5588/monitoringchangehub")
+        .Build();
+
+        hubConnection.On<int, int>("UpdateUI", async (id, changes) =>
+        {
+            isLoading = true;
+            var matchingItem = monitoringItems.FirstOrDefault(item => item.Id == id);
+            if (matchingItem != null)
+            {
+                matchingItem.Change = MonitoringItem.MonitoringChange.CHANGE;
+                matchingItem.NumChanges = changes;
+                isLoading = false;
+                await MonitoringGrid.Refresh();
+            }            
+        });
+
+        await hubConnection.StartAsync();
+        await base.OnInitializedAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) { return; }
+
+        isLoading = true;
+        monitoringItems = await monitoringService.GetMonitoringItemsAsync();
+        isLoading = false;
+        StateHasChanged();
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    public async void ActionBegin(ActionEventArgs<MonitoringItem> args)
+    {
+        string requestType = args.RequestType.ToString();
+        var requestTaa = args.RequestType;
+        if (args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            if (args.Action == "Add")
+            {
+                args.Data.Password = HashPassword(args.Data.Password);
+                await monitoringService.AddMonitoringItemAsync(args.Data);
+            }
+        }
+
+        if (args.Action == "Delete" && isDialogOpen)
+        {
+            args.Cancel = true;  //Cancel default delete action.
+            await Dialog.ShowAsync();
+            isDialogOpen = false;
+        }
+    }
+
+    public void RowSelectHandler(RowSelectEventArgs<MonitoringItem> Args)
+    {
+        SelectedData = Args.Data.Id;
+    }
+
+    private async Task OkClick()
+    {
+        await MonitoringGrid.DeleteRecordAsync();
+        bool deleted = await monitoringService.RemoveMonitoringItemAsync(SelectedData);
+
+        if (deleted)
+        {
+            await jsRuntime.ToastrSuccess("Úspěch", "Záznam byl smazán.");
+            monitoringItems = await monitoringService.GetMonitoringItemsAsync();
+            StateHasChanged();
+        }
+        else
+        {
+            await jsRuntime.ToastrError("Chyba", "Záznam není možné smazat!");
+        }
+        await Dialog.HideAsync();
+    }
+
+    private async Task CancelClick()
+    {
+        await Dialog.HideAsync();
+    }
+
+    public void OnCommandClicked(CommandClickEventArgs<MonitoringItem> args)
+    {
+        int itemId = args.RowData.Id;
+        if (args.CommandColumn.Type == CommandButtonType.None && unlockedItems.ContainsKey(itemId) || string.IsNullOrEmpty(args.RowData.Password))
+        {
+            navigationManager.NavigateTo($"monitoring/details/{itemId}");
+        }
+    }
+
+    private async Task Verify(string websiteURL, string elementToCheck, bool? outerHtml, string pattern = "")
+    {
+        if (!string.IsNullOrEmpty(websiteURL))
+        {
+            try
+            {
+                using (var httpClient = new HttpClient())
+                {
+                    // Ensure websiteUrl is a valid absolute URI
+                    if (Uri.TryCreate(websiteURL, UriKind.Absolute, out Uri uri))
+                    {
+                        var html = await httpClient.GetStringAsync(uri);
+                        var htmlDocument = new HtmlAgilityPack.HtmlDocument();
+                        htmlDocument.LoadHtml(html);
+                        var element = htmlDocument.DocumentNode.SelectSingleNode(elementToCheck);
+                        string? value = null;
+                        if (outerHtml.HasValue && outerHtml.Value)
+                        {
+                            value = element.OuterHtml;
+                            value = value.Substring(1, value.Length - 2);
+                        }
+                        else
+                        {
+                            value = element.InnerHtml;
+                        }
+                        if (!string.IsNullOrEmpty(value))
+                        {
+                            if (!string.IsNullOrEmpty(pattern))
+                            {
+                                value = parser.ParseString(value, pattern);
+                            }
+                            await jsRuntime.ToastrSuccess("Úspěch", $"Byl nalezen prvek {value}");
+                        }
+                        else
+                        {
+                            await jsRuntime.ToastrError("Chyba", $"Nepodařilo se najít žádný odpovídající prvek");
+                        }
+                        StateHasChanged();
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ERROR] Invalid website URL provided. {websiteURL}");
+                    }
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to fetch website content: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] An unexpected error occurred: {ex.Message}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("[INFO] Website URL is empty. Skipping the check.");
+        }
+    }
+
+    public void Closed()
+    {
+        isDialogOpen = true;
+    }
+
+    private async Task VerifyPassword(int itemId)
+    {
+
+        var enteredPassword = await jsRuntime.InvokeAsync<string>("prompt", "Zadejte heslo");
+        if (enteredPassword == null) { return; }
+        var item = monitoringItems.FirstOrDefault(item => item.Id == itemId);
+        if (HashPassword(enteredPassword) == item.Password)
+        {
+            unlockedItems[itemId] = true;
+            await jsRuntime.ToastrSuccess("Úspěch", "Heslo bylo zadáno správně.");
+        }
+        else
+        {
+            await jsRuntime.ToastrError("Chyba", $"Bylo zadáno špatné heslo!");
+        }
+    }
+
+    private string HashPassword(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password)) { return string.Empty; }
+        using (var sha256 = System.Security.Cryptography.SHA256.Create())
+        {
+            byte[] bytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+
+            // Convert byte array to string
+            System.Text.StringBuilder builder = new System.Text.StringBuilder();
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                // x2 convert to hexadecimal string representation with 2 exactly characters
+                // if the representation is less than 2 characters, pad it with 0
+                // For example, if bytes[i] has a decimal value of 10, its hexadecimal representation 
+                // would be "0A" because it's padded to two characters.
+                builder.Append(bytes[i].ToString("x2")); 
+            }
+            return builder.ToString();
+        }
+    }
+}

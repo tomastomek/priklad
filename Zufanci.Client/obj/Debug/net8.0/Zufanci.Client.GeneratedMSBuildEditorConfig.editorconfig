@@ -1,0 +1,59 @@
+is_global = true
+build_property.EnableAotAnalyzer = 
+build_property.EnableSingleFileAnalyzer = 
+build_property.EnableTrimAnalyzer = false
+build_property.IncludeAllContentForSelfExtract = 
+build_property.TargetFramework = net8.0
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = 
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = false
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = browser
+build_property.RootNamespace = Zufanci.Client
+build_property.RootNamespace = Zufanci.Client
+build_property.ProjectDir = \\Mac\Home\Downloads\Zufanci\Zufanci.Client\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = false
+build_property.RazorLangVersion = 8.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = \\Mac\Home\Downloads\Zufanci\Zufanci.Client
+build_property._RazorSourceGeneratorDebug = 
+
+[//Mac/Home/Downloads/Zufanci/Zufanci.Client/Pages/CategoryList.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ2F0ZWdvcnlMaXN0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[//Mac/Home/Downloads/Zufanci/Zufanci.Client/Pages/Graphs.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcR3JhcGhzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[//Mac/Home/Downloads/Zufanci/Zufanci.Client/Pages/Home.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSG9tZS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[//Mac/Home/Downloads/Zufanci/Zufanci.Client/Pages/Monitoring.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTW9uaXRvcmluZy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[//Mac/Home/Downloads/Zufanci/Zufanci.Client/Pages/ProductList.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUHJvZHVjdExpc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[//Mac/Home/Downloads/Zufanci/Zufanci.Client/Pages/ProductPriceList.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUHJvZHVjdFByaWNlTGlzdC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[//Mac/Home/Downloads/Zufanci/Zufanci.Client/Pages/ShopList.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU2hvcExpc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[//Mac/Home/Downloads/Zufanci/Zufanci.Client/Pages/UnitList.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcVW5pdExpc3QucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[//Mac/Home/Downloads/Zufanci/Zufanci.Client/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = X0ltcG9ydHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 

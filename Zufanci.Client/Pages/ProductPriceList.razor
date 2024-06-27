@@ -1,0 +1,213 @@
+﻿@page "/product/price/{Id:int}"
+@using Zufanci.Shared
+@using Zufanci.Client.Repository.IRepository
+@using System.ComponentModel.DataAnnotations
+@inject IProductRepository productRepository
+@inject IProductPriceRepository priceRepository
+@inject IShopRepository shopRepository
+@inject IUnitRepository unitRepository
+@inject IImageRepository imageRepository
+@inject NavigationManager nav
+@rendermode InteractiveAuto
+
+@if (isLoading)
+{
+    <SfSpinner Visible="@isLoading" Label="Načítám detaily produktu" />
+}
+else
+{
+    <h3 style="text-align:center;">@Product.Name</h3>
+    <div class="row border p-2 mb-4 rounded">
+        <div class="col-9">
+            <div class="card-body shadow rounded">
+                <p class="text_overline d-flex mt-3 mb-0">Kategorie</p>
+                <p class="text_body"><b>@Product.Category.Name</b></p>
+                <p class="text_overline d-flex mt-3 mb-0">Nejnižší cena</p>
+                <p class="text_body"><b>@((Product.LowestPrice.HasValue) ? Product.LowestPrice.Value.ToString("0.00") : "- ") Kč</b></p>
+                <p class="text_overline d-flex mt-3 mb-0">Nejvyšší cena</p>
+                <p class="text_body"><b>@((Product.HighestPrice.HasValue) ? Product.HighestPrice.Value.ToString("0.00") : "- ") Kč</b></p>
+                <p class="text_overline d-flex mt-3 mb-0">Průměrná cena</p>
+                <p class="text_body"><b>@((Product.AveragePrice.HasValue) ? Product.AveragePrice.Value.ToString("0.00") : "- ") Kč</b></p>
+            </div>
+        </div>
+        <div class="col-3 @(Product.ImageName == "images/default.png" ? "" : "zarovnat-na-stred")">
+            <div class="obrazek_produktu">
+                <img src="@Product.ImageName" class="w-100 shadow rounded border">
+                <span class="fa-solid fa-pen-to-square" onclick="@(() => EditClicked())"></span>
+            </div>
+            @if (uploadVisible)
+            {
+                <InputFile accept=".jpg, .jpeg, .png" OnChange="HandleImageUpload" />
+            }
+        </div>
+    </div>
+    <div class="row my-4">
+        <div class="col-md-12">
+            <SfGrid @ref="priceGrid" DataSource="@Prices" AllowPaging="true" AllowFiltering="true" AllowSorting="true" AllowGrouping="true"
+                    Toolbar="@(new List<string>() {"Add", "Edit", "Update", "Delete", "Cancel"})">
+                <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel" />
+                <GridPageSettings PageSize="10"></GridPageSettings>
+                <GridEditSettings AllowAdding="true" AllowEditing="true" AllowDeleting="true" ShowDeleteConfirmDialog="true" Mode="EditMode.Dialog"></GridEditSettings>
+                <GridEvents OnActionBegin="@ActionHandler" TValue="ProductPrice"></GridEvents>
+                <GridColumns>
+                    <GridColumn Field="@nameof(ProductPrice.Id)" HeaderText="Price Id" AllowAdding="false" AllowEditing="false" IsPrimaryKey="true" Visible="false" />
+                    <GridColumn Field="@nameof(ProductPrice.PurchaseDate)" HeaderText="Datum nákupu" DefaultValue="@DateTime.Today" Format="dd.MM.yyyy" Width="130" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+                    <GridColumn Field="@nameof(ProductPrice.Price)" HeaderText="Cena" Format="C2" Width="130" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+                    <GridColumn Field="@nameof(ProductPrice.Size)" HeaderText="Množství" Width="130" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                        <Template>
+                            @{
+                                var cont = context as ProductPrice;
+                                Unit unit = Units.Where(x => x.Id == cont.UnitId).FirstOrDefault();
+                                <div>@cont.Size@unit.Abbreviation</div>
+                            }
+                        </Template>
+                    </GridColumn>
+                    <GridForeignColumn Field="@nameof(ProductPrice.UnitId)" HeaderText="Jednotka" ForeignKeyValue="Name" ForeignDataSource="@Units" ForeignKeyField="@nameof(Unit.Id)" Width="0" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+                    <GridColumn HeaderText="Cena za jednotku" AllowAdding="false" AllowEditing="false" AllowFiltering="true" AllowSorting="true" Width="130" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                        <Template>
+                            @{
+                                var cena = (context as ProductPrice);
+                                var jednotka = Units.Where(x => x.Id == cena.UnitId).FirstOrDefault();
+                                double sizexValue = cena.Size * jednotka.Value;
+                                decimal priceDivSizexValue = cena.Price / System.Convert.ToDecimal(sizexValue);
+                                <div>@((priceDivSizexValue * jednotka.DisplayValue).ToString("0.00")) Kč</div>
+                            }
+                        </Template>
+                        <EditTemplate></EditTemplate>
+                    </GridColumn>
+                    <GridColumn Field="@nameof(ProductPrice.Discount)" EditType="EditType.BooleanEdit" DisplayAsCheckBox="true" HeaderText="Akce" Width="130" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                        <FilterItemTemplate>
+                            @{
+                                var cont = context as FilterItemTemplateContext;
+                                if (cont.Value.ToString() == "Pravda")
+                                {
+                                    <div>V akci</div>
+                                }
+                                else
+                                {
+                                    <div>Mimo akci</div>
+                                }
+                            }
+                        </FilterItemTemplate>
+                    </GridColumn>
+                    <GridForeignColumn Field="@nameof(ProductPrice.ShopId)" HeaderText="Obchod" ForeignKeyValue="Name" ForeignDataSource="@Shops" ForeignKeyField="@nameof(Shop.Id)" Width="250" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                        <Template>
+                            @{
+                                var con = (context as ProductPrice);
+                                Shop shop = Shops.Where(x => x.Id == con.ShopId).FirstOrDefault();
+                                if (shop.ShopImage != null)
+                                {
+                                    <img style="height: 55px; width: 55px; border-radius: 50px; box-shadow: inset 0 0 1px #e0e0e0, inset 0 0 14px rgba(0, 0, 0, 0.2);" src="@shop.ShopImage" title="@shop.Name" />
+                                }
+                                else
+                                {
+                                    <span>@shop.Name</span>
+                                }
+                            }
+                        </Template>
+                    </GridForeignColumn>
+                </GridColumns>
+            </SfGrid>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Shop> Shops { get; set; } = new List<Shop>();
+    private List<Unit> Units { get; set; } = new List<Unit>();
+    private List<ProductPrice> Prices { get; set; } = new List<ProductPrice>();
+    private Product Product { get; set; } = new Product();
+    private SfGrid<ProductPrice> priceGrid;
+    private string imageBase64;
+    private bool isLoading;
+    private bool uploadVisible;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        Product = await productRepository.GetProductAsync(Id);
+        Shops = await shopRepository.GetShopsAsync();
+        Units = await unitRepository.GetUnitsAsync();
+        Prices = await priceRepository.GetPricesAsync(Id);
+        uploadVisible = string.IsNullOrEmpty(Product.ImageName);
+        Product.ImageName = (Product.ImageName == null) ? "images/default.png" : Product.ImageName;
+        await UpdatePrices(true);
+        isLoading = false;
+    }
+
+    private async void ActionHandler(ActionEventArgs<ProductPrice> args)
+    {
+        if (args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            args.Data.ProductId = Id;
+            if (args.Action == "Add")
+            {
+                await priceRepository.CreatePricesAsync(args.Data);
+                Prices = await priceRepository.GetPricesAsync(Id);
+                await priceGrid.Refresh();
+            }
+            if (args.Action == "Edit")
+            {
+                await priceRepository.UpdatePricesAsync(args.Data);
+            }
+        }
+        if (args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Delete))
+        {
+            await priceRepository.DeletePricesAsync(args.Data.Id);
+        }
+        await UpdatePrices(false);
+    }
+
+    private async Task UpdatePrices(bool firstLoad)
+    {
+        if (Prices.Count > 0)
+        {
+            Product.LowestPrice = Prices.Min(GetUnitPrices);
+            Product.HighestPrice = Prices.Max(GetUnitPrices);
+            Product.AveragePrice = Prices.Average(GetUnitPrices);
+            if (!firstLoad)
+            {
+                await productRepository.UpdateProductAsync(Product);
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task HandleImageUpload(InputFileChangeEventArgs args)
+    {
+        var imageFiles = args.GetMultipleFiles();
+
+        foreach (var image in imageFiles)
+        {
+            byte[] buffer;
+            using (MemoryStream ms = new MemoryStream())
+            {
+                await image.OpenReadStream().CopyToAsync(ms);
+                buffer = ms.ToArray();
+            }
+            imageBase64 = Convert.ToBase64String(buffer);
+            Product.ImageName = await imageRepository.CreateImageAsync(imageBase64, "product");
+        }
+
+        if (!string.IsNullOrEmpty(Product.ImageName))
+        {
+            await productRepository.UpdateProductAsync(Product);
+            uploadVisible = false;
+        }
+    }
+
+    private decimal GetUnitPrices(ProductPrice prices)
+    {
+        Unit unit = Units.Where(x => x.Id == prices.UnitId).FirstOrDefault();
+        decimal sizexValue = System.Convert.ToDecimal(prices.Size * unit.Value);
+        return (prices.Price / sizexValue) * unit.DisplayValue;
+    }
+
+    private void EditClicked()
+    {
+        uploadVisible = true;
+    }
+}

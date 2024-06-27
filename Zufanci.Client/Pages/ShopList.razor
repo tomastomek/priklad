@@ -1,0 +1,150 @@
+﻿@page "/shop"
+@using Zufanci.Shared
+@using Zufanci.Client.Repository.IRepository
+@inject IShopRepository shopRepository
+@inject IImageRepository imageRepository
+@inject IJSRuntime jsRuntime
+@rendermode InteractiveAuto
+
+@if (isLoading)
+{
+    <SfSpinner Visible="@isLoading" Label="Načítám obchody" />
+}
+else
+{
+    <h3 style="text-align:center;">Seznam obchodů</h3>
+    <SfGrid @ref="ShopGrid" DataSource="@shops" AllowPaging="true" AllowSorting="true" AllowFiltering="true" AdaptiveUIMode="AdaptiveMode.Both"
+            Toolbar="@(new List<string>() {"Add", "Edit"})" AllowTextWrap="true">
+        <GridPageSettings PageSizes="@(new string[] { "5", "10", "15", "20", "50", "All" })" PageSize="15"></GridPageSettings>
+        <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel" />
+        <GridEvents OnActionBegin="ActionBegin" CommandClicked="OnCommandClicked" TValue="Shop" />
+        <GridEditSettings AllowEditing="true" AllowAdding="true" AllowDeleting="true" Mode="EditMode.Dialog">
+            <HeaderTemplate>
+                @{
+                    var text = (context as Shop).Name;
+                    if (text != null)
+                    {
+                        <span>Detaily obchodu - @text</span>
+                    }
+                    else
+                    {
+                        <span>Přidat nový záznam</span>
+                    }
+                }
+            </HeaderTemplate>
+        </GridEditSettings>
+        <GridColumns>
+            <GridColumn Field="@nameof(Shop.Id)" HeaderText="Shop Id" AllowAdding="false" AllowEditing="false" Visible="false" IsPrimaryKey="true" />
+            <GridColumn HeaderText="Logo obchodu" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                <Template>
+                    @if ((context as Shop).ShopImage != null)
+                    {
+                        <img style="height: 55px; width: 55px; border-radius: 50px; box-shadow: inset 0 0 1px #e0e0e0, inset 0 0 14px rgba(0, 0, 0, 0.2);" src="@((context as Shop).ShopImage)" />
+                    }
+                </Template>
+                <EditTemplate>
+                    <p><b>Logo obchodu:</b></p>
+                    @if (imageBase64 != null)
+                    {
+                        <img src="data:image/jpeg;base64, @imageBase64" style="width: 250px" />
+                    }
+                    @if ((context as Shop).ShopImage != null && imageBase64 == null)
+                    {
+                        <img src="@((context as Shop).ShopImage)" style="width: 250px" />
+                    }
+                    <InputFile accept=".jpg, .jpeg, .png" OnChange="HandleImageUpload" />
+                </EditTemplate>
+            </GridColumn>
+            <GridColumn Field="@nameof(Shop.Name)" HeaderText="Název" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+            <GridColumn Field="@nameof(Shop.Location)" HeaderText="Adresa" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+            <GridColumn HeaderText="Spravovat záznamy" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                <GridCommandColumns>
+                    <GridCommandColumn Type="CommandButtonType.Edit" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-edit", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Delete" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-delete", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Save" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-update", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Cancel" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-cancel-icon", CssClass = "e-flat" })"></GridCommandColumn>
+                </GridCommandColumns>
+            </GridColumn>
+        </GridColumns>
+    </SfGrid>
+}
+
+@code {
+    private SfGrid<Shop> ShopGrid = default!;
+    private bool isLoading;
+    private bool hasChanged;
+    private string? imageBase64;
+    List<Shop> shops = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        shops = await shopRepository.GetShopsAsync();
+        isLoading = false;
+    }
+
+    public async void ActionBegin(ActionEventArgs<Shop> args)
+    {
+        if (args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            if (imageBase64 != null)
+            {
+                args.Data.ShopImage = await imageRepository.CreateImageAsync(imageBase64, "shop");
+            }
+
+            if (args.Action == "Add")
+            {
+                await shopRepository.CreateShopAsync(args.Data);
+                hasChanged = true;
+            }
+            if (args.Action == "Edit")
+            {
+                await shopRepository.UpdateShopAsync(args.Data);
+                hasChanged = true;
+            }
+
+            if (hasChanged)
+            {
+                shops = await shopRepository.GetShopsAsync();
+                await ShopGrid.Refresh();
+            }
+        }
+        imageBase64 = null;
+    }
+
+    public async Task OnCommandClicked(CommandClickEventArgs<Shop> args)
+    {
+        if (args.CommandColumn.Type == CommandButtonType.Delete)
+        {
+            bool deleted = await shopRepository.DeleteShopAsync(args.RowData.Id);
+            if (deleted)
+            {
+                await jsRuntime.ToastrSuccess("Úspěch", "Obchod byl smazán.");
+            }
+            else
+            {
+                args.Cancel = true;
+                await jsRuntime.ToastrError("Chyba", "Obchod není možné smazat, protože se používá!");
+            }
+        }
+    }
+
+    public async Task HandleImageUpload(InputFileChangeEventArgs args)
+    {
+        var imageFiles = args.GetMultipleFiles();
+
+        foreach (var image in imageFiles)
+        {
+            byte[] buffer;
+            using (MemoryStream ms = new MemoryStream())
+            {
+                await image.OpenReadStream().CopyToAsync(ms);
+                buffer = ms.ToArray();
+            }
+
+            imageBase64 = Convert.ToBase64String(buffer);
+        }
+        ShopGrid.PreventRender(false);
+        StateHasChanged();
+    }
+}

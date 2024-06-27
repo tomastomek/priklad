@@ -1,0 +1,89 @@
+﻿@page "/unit"
+@using Zufanci.Shared
+@inject IUnitRepository unitRepository
+@inject IJSRuntime jsRuntime
+@rendermode InteractiveServer
+
+@if (isLoading)
+{
+    <SfSpinner Visible="@isLoading" Label="Načítám jednotky" />
+}
+else
+{
+    <h3 style="text-align:center;">Jednotky</h3>
+    <SfGrid @ref="UnitGrid" DataSource="@units" AllowPaging="true" AllowSorting="true" AllowFiltering="true" AdaptiveUIMode="AdaptiveMode.Both"
+            Toolbar="@(new List<string>() {"Add", "Edit"})" AllowTextWrap="true">
+        <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel" />
+        <GridPageSettings PageSize="15"></GridPageSettings>
+        <GridEditSettings AllowEditing="true" AllowAdding="true" AllowDeleting="true"></GridEditSettings>
+        <GridEvents OnActionBegin="ActionBegin" CommandClicked="OnCommandClicked" TValue="Unit" />
+        <GridColumns>
+            <GridColumn Field="@nameof(Unit.Id)" HeaderText="Category Id" AllowAdding="false" AllowEditing="false" Visible="false" IsPrimaryKey="true" />
+            <GridColumn Field="@nameof(Unit.Name)" HeaderText="Název" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+            <GridColumn Field="@nameof(Unit.Abbreviation)" HeaderText="Zkratka" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+            <GridColumn Field="@nameof(Unit.Value)" HeaderText="Hodnota" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+            <GridColumn Field="@nameof(Unit.DisplayValue)" HeaderText="Zobrazení" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                <HeaderTemplate>
+                    <span title="@tooltipContent">Cena za</span>
+                </HeaderTemplate>
+            </GridColumn>
+            <GridColumn HeaderText="Spravovat záznamy" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                <GridCommandColumns>
+                    <GridCommandColumn Type="CommandButtonType.Edit" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-edit", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Delete" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-delete", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Save" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-update", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Cancel" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-cancel-icon", CssClass = "e-flat" })"></GridCommandColumn>
+                </GridCommandColumns>
+            </GridColumn>
+        </GridColumns>
+    </SfGrid>
+}
+
+@code {
+    private SfGrid<Unit> UnitGrid = new SfGrid<Unit>();
+    private bool isLoading;
+    private string tooltipContent = "Uvádíme jaký násobek základní jednotky zobrazit. Např. u váhy je základ gram, tak 100 znamená 100g.";
+    List<Unit> units = new List<Unit>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        units = await unitRepository.GetUnitsAsync();
+        isLoading = false;
+    }
+
+    public async void ActionBegin(ActionEventArgs<Unit> args)
+    {
+        if (args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            if (args.Action == "Add")
+            {
+                await unitRepository.CreateUnitAsync(args.Data);
+                units = await unitRepository.GetUnitsAsync();
+                await UnitGrid.Refresh();
+
+            }
+            if (args.Action == "Edit")
+            {
+                await unitRepository.UpdateUnitAsync(args.Data);
+            }
+        }
+    }
+
+    public async Task OnCommandClicked(CommandClickEventArgs<Unit> args)
+    {
+        if (args.CommandColumn.Type == CommandButtonType.Delete)
+        {
+            bool deleted = await unitRepository.DeleteUnitAsync(args.RowData.Id);
+            if (deleted)
+            {
+                await jsRuntime.ToastrSuccess("Úspěch", "Jednotka byla smazána.");
+            }
+            else
+            {
+                args.Cancel = true;
+                await jsRuntime.ToastrError("Chyba", "Jednotku není možné smazat, protože se používá!");
+            }
+        }
+    }
+}

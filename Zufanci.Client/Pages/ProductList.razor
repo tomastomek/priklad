@@ -1,0 +1,122 @@
+﻿@page "/product"
+@using Zufanci.Shared
+@using Zufanci.Client.Repository.IRepository
+@inject IProductRepository productRepository
+@inject ICategoryRepository categoryRepository
+@inject IProductPriceRepository priceRepository
+@inject NavigationManager navigationManager
+@rendermode InteractiveAuto
+
+@if (isLoading)
+{
+    <SfSpinner Visible="@isLoading" Label="Načítám produkty" />
+}
+else
+{
+    <h3 style="text-align:center;">Seznam produktů</h3>
+    <SfGrid ID="Grid" @ref="ProductGrid" DataSource="@products" AllowPaging="true" AllowSorting="true" AllowFiltering="true" AllowGrouping="true" ShowColumnChooser="true"
+            Toolbar="@(new List<string>() {"Add", "Edit", "Delete", "Update", "Cancel", "ExcelExport", "PdfExport", "Search", "ColumnChooser"})" AllowExcelExport="true" AllowPdfExport="true"
+            AllowTextWrap="true">
+        <GridTextWrapSettings WrapMode="WrapMode.Both" />
+        <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel" />
+        <GridPageSettings PageSizes="@(new string[] { "5", "10", "15", "20", "50", "All" })" PageSize="15"></GridPageSettings>
+        <GridEditSettings AllowEditing="true" AllowAdding="true" AllowDeleting="true" ShowDeleteConfirmDialog="true"></GridEditSettings>
+        <GridEvents OnActionBegin="ActionBegin" CommandClicked="OnCommandClicked" OnToolbarClick="ToolbarClickHandler" TValue="Product" />
+        <GridColumns>
+            <GridColumn Field="@nameof(Product.Id)" HeaderText="Product Id" AllowAdding="false" AllowEditing="false" Visible="false" IsPrimaryKey="true" ShowInColumnChooser="false" />
+            <GridColumn Field="@nameof(Product.Name)" HeaderText="Produkt" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" />
+            <GridForeignColumn Field="@nameof(Product.CategoryId)" HeaderText="Kategorie" ForeignKeyValue="Name" ForeignDataSource="@categories" ForeignKeyField="@nameof(Category.Id)"
+                               TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                <Template>
+                    @{
+                        var con = (context as Product);
+                        Category category = categories.Where(x => x.Id == con.CategoryId).FirstOrDefault();
+                        if (category.CategoryImage != null)
+                        {
+                            <img style="height: 30px; width: 30px;" src="@category.CategoryImage" title="@category.Name" />
+                        }
+                        else
+                        {
+                            <span>@category.Name</span>
+                        }
+                    }
+                </Template>
+            </GridForeignColumn>
+            <GridColumn Field="@nameof(Product.LowestPrice)" HeaderText="Nejnižší cena" Format="C2" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" AllowAdding="false" AllowEditing="false" />
+            <GridColumn Field="@nameof(Product.HighestPrice)" HeaderText="Nejvyšší cena" Format="C2" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" AllowAdding="false" AllowEditing="false" />
+            <GridColumn Field="@nameof(Product.AveragePrice)" HeaderText="Průměrná cena" Format="C2" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" AllowAdding="false" AllowEditing="false" />
+            <GridColumn HeaderText="Ceny" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                <GridCommandColumns>
+                    <GridCommandColumn ButtonOption="@(new CommandButtonOptions() { CssClass="e-icons e-primary e-view-details"})" Title="Detaily"></GridCommandColumn>
+                </GridCommandColumns>
+            </GridColumn>
+            <GridColumn HeaderText="Spravovat záznamy" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Center" HeaderTextAlign="Syncfusion.Blazor.Grids.TextAlign.Center">
+                <GridCommandColumns>
+                    <GridCommandColumn Type="CommandButtonType.Edit" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-edit", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Delete" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-delete", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Save" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-update", CssClass = "e-flat" })"></GridCommandColumn>
+                    <GridCommandColumn Type="CommandButtonType.Cancel" ButtonOption="@(new CommandButtonOptions() { IconCss = "e-icons e-cancel-icon", CssClass = "e-flat" })"></GridCommandColumn>
+                </GridCommandColumns>
+            </GridColumn>
+        </GridColumns>
+    </SfGrid>
+}
+
+@code {
+    private SfGrid<Product> ProductGrid = default!;
+    private List<ProductPrice> Prices { get; set; } = new List<ProductPrice>();
+    private List<Product> products = default!;
+    private List<Category> categories = default!;
+    private bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        products = await productRepository.GetProductsAsync();
+        categories = await categoryRepository.GetCategoriesAsync();
+        isLoading = false;
+    }
+
+    public async Task ToolbarClickHandler(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        if (args.Item.Id == "Grid_excelexport")
+        {
+            ExcelExportProperties Props = new ExcelExportProperties();
+            await this.ProductGrid.ExportToExcelAsync(Props);
+        }
+        if (args.Item.Id == "Grid_pdfexport")
+        {
+            await this.ProductGrid.ExportToPdfAsync();
+        }
+    }
+
+    public void OnCommandClicked(CommandClickEventArgs<Product> args)
+    {
+        if (args.CommandColumn.Type == CommandButtonType.None)
+        {
+            navigationManager.NavigateTo($"product/price/{args.RowData.Id}");
+        }
+    }
+
+    public async void ActionBegin(ActionEventArgs<Product> args)
+    {
+        if (args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            if (args.Action == "Add")
+            {
+                await productRepository.CreateProductAsync(args.Data);
+                products = await productRepository.GetProductsAsync();
+                await ProductGrid.Refresh();
+
+            }
+            if (args.Action == "Edit")
+            {
+                await productRepository.UpdateProductAsync(args.Data);
+            }
+        }
+        if (args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Delete))
+        {
+            await productRepository.DeleteProductAsync(args.Data.Id);
+        }
+    }
+}

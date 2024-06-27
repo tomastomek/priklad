@@ -1,0 +1,51 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "\\\\Mac\\Home\\Downloads\\Zufanci\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{B113ED9D-53F3-472B-98CB-A227B01E954F}|Zufanci.Client\\Zufanci.Client.csproj|\\\\mac\\home\\downloads\\zufanci\\zufanci.client\\pages\\home.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B113ED9D-53F3-472B-98CB-A227B01E954F}|Zufanci.Client\\Zufanci.Client.csproj|\\\\mac\\home\\downloads\\zufanci\\zufanci.client\\pages\\categorylist.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Home.razor",
+              "DocumentMoniker": "\\\\Mac\\Home\\Downloads\\Zufanci\\Zufanci.Client\\Pages\\Home.razor",
+              "RelativeDocumentMoniker": "Zufanci.Client\\Pages\\Home.razor",
+              "ToolTip": "\\\\Mac\\Home\\Downloads\\Zufanci\\Zufanci.Client\\Pages\\Home.razor",
+              "RelativeToolTip": "Zufanci.Client\\Pages\\Home.razor",
+              "ViewState": "AQIAACUAAABA1czMzIwjwAAAAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2024-06-27T16:13:43.632Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "CategoryList.razor",
+              "DocumentMoniker": "\\\\Mac\\Home\\Downloads\\Zufanci\\Zufanci.Client\\Pages\\CategoryList.razor",
+              "RelativeDocumentMoniker": "Zufanci.Client\\Pages\\CategoryList.razor",
+              "ToolTip": "\\\\Mac\\Home\\Downloads\\Zufanci\\Zufanci.Client\\Pages\\CategoryList.razor",
+              "RelativeToolTip": "Zufanci.Client\\Pages\\CategoryList.razor",
+              "ViewState": "AQIAAIEAAAAA6DIzMzP7vwAAAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2024-06-27T16:13:32.862Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
